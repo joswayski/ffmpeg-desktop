@@ -1,9 +1,9 @@
 # ffmpeg-desktop
 
-A static, trimmed [FFmpeg](https://ffmpeg.org) for the Windows and Linux
-desktop app of [Caper](https://caper.chat), a place for your people to chat
-about anything ([source](https://github.com/joswayski/caper)). The app runs it
-as a separate program to:
+A static, trimmed [FFmpeg](https://ffmpeg.org) for Windows and Linux. Built for
+the desktop app of [Caper](https://caper.chat), a place for your people to chat
+about anything ([source](https://github.com/joswayski/caper)), which runs it as
+a separate program to:
 
 - compress videos before upload (H.264/AAC MP4, HDR tone mapped to SDR),
 - play videos in the app (raw RGBA frames and float PCM on pipes, streamed
