@@ -163,7 +163,9 @@ FEATURES=(
 )
 WINDOWS_FEATURES=()
 # Windows' own H.264 encoder (hardware on most PCs), tried before x264.
-[[ "$TARGET" == windows-x64 ]] && WINDOWS_FEATURES=(--enable-mediafoundation --enable-encoder=h264_mf)
+# FFmpeg 9's encoder uses D3D11 types even without D3D11 frames, so it needs
+# d3d11va too (its DLLs are loaded at run time, not linked).
+[[ "$TARGET" == windows-x64 ]] && WINDOWS_FEATURES=(--enable-mediafoundation --enable-d3d11va --enable-encoder=h264_mf)
 
 (
   cd "$BUILD/ffmpeg"
