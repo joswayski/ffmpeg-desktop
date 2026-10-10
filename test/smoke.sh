@@ -11,20 +11,30 @@ probe() { "$ffmpeg" -nostdin -hide_banner -i "$1" 2>&1 | grep -E "Stream|display
 
 # Compress the HDR phone clip exactly as the app does: tone mapped, rotated to
 # portrait by FFmpeg, short edge 1080 by expression.
+# Encoder flags are the app's (High profile from both).
 compress() {
+  local encoder="$1"; shift
   run -y -i "$inputs/phone.mov" -map 0:v:0 -map '0:a:0?' \
     -vf "zscale=w='if(lte(iw,ih),1080,-2)':h='if(lte(iw,ih),-2,1080)':t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p" \
-    -c:v "$1" -b:v 6000k -c:a copy -map_metadata -1 -movflags +faststart -f mp4 "$work/out-$1.mp4" || return 1
-  probe "$work/out-$1.mp4" | tee "$work/probe.txt"
-  grep -q "Video: h264" "$work/probe.txt" && grep -q "1080x1920" "$work/probe.txt"
+    -c:v "$encoder" "$@" -b:v 6000k -maxrate 9000k -bufsize 12000k -c:a copy -map_metadata -1 -movflags +faststart \
+    -f mp4 "$work/out-$encoder.mp4" || return 1
+  probe "$work/out-$encoder.mp4" | tee "$work/probe.txt"
+  grep -q "Video: h264 (High)" "$work/probe.txt" && grep -q "1080x1920" "$work/probe.txt"
 }
-compress libx264
+compress libx264 -preset veryfast -profile:v high
 # Windows also tries Media Foundation's hardware encoder first. Machines
 # without it (Windows Server without Media Foundation, some VMs) fall back to
 # x264 in the app, so here it's reported rather than required.
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*)
-    if compress h264_mf; then echo "h264_mf: ok"; else echo "::warning::h264_mf unavailable on this machine; the app falls back to libx264"; fi
+    if compress h264_mf -rate_control u_vbr -profile:v 100; then
+      echo "h264_mf: ok"
+    elif [[ -s "$work/out-h264_mf.mp4" ]]; then
+      echo "h264_mf encoded, but not 1080x1920 High profile" >&2
+      exit 1
+    else
+      echo "::warning::h264_mf unavailable on this machine; the app falls back to libx264"
+    fi
     ;;
 esac
 
