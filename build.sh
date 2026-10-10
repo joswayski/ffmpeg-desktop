@@ -176,7 +176,7 @@ WINDOWS_FEATURES=()
     --disable-ffplay --disable-ffprobe --disable-iconv \
     --enable-libx264 --enable-libzimg --enable-libdav1d --enable-swscale --enable-swresample \
     "${FEATURES[@]}" "${WINDOWS_FEATURES[@]}"
-  make -j"$JOBS" ffmpeg
+  make -j"$JOBS" "ffmpeg$EXE"
 )
 cp "$BUILD/ffmpeg/ffmpeg$EXE" "$OUT/ffmpeg$EXE"
 "${HOST:+$HOST-}strip" "$OUT/ffmpeg$EXE"
