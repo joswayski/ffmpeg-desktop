@@ -1,0 +1,108 @@
+name: Release
+
+# Builds the trimmed FFmpeg for Linux and Windows on every push to main and
+# publishes both as a GitHub release named after the pinned FFmpeg version and
+# RELEASE_REVISION in build.sh. A release that already exists is never
+# replaced: consumers pin its zips' SHA-256, so publishing a different build
+# means bumping RELEASE_REVISION.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      tag: ${{ steps.name.outputs.tag }}
+      exists: ${{ steps.existing.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release name
+        id: name
+        run: |
+          ffmpeg="$(sed -n 's/^FFMPEG_VERSION=//p' build.sh)"
+          revision="$(sed -n 's/^RELEASE_REVISION=//p' build.sh)"
+          test -n "$ffmpeg" && test -n "$revision"
+          echo "tag=ffmpeg-$ffmpeg-r$revision" >> "$GITHUB_OUTPUT"
+      - name: Skip if already released
+        id: existing
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.name.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install build tools
+        if: steps.existing.outputs.exists != 'true'
+        # The runner's own ffmpeg only generates test inputs.
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q nasm meson ninja-build mingw-w64 autoconf automake libtool pkg-config gnupg ffmpeg
+      - name: Build
+        if: steps.existing.outputs.exists != 'true'
+        run: ./build.sh linux-x64 && ./build.sh windows-x64
+      - name: Test inputs
+        if: steps.existing.outputs.exists != 'true'
+        run: test/inputs.sh test/inputs
+      - name: Smoke-test Linux
+        if: steps.existing.outputs.exists != 'true'
+        run: test/smoke.sh dist/linux-x64/ffmpeg test/inputs
+      - name: Package
+        if: steps.existing.outputs.exists != 'true'
+        run: |
+          set -euo pipefail
+          for target in linux-x64 windows-x64; do
+            (cd "dist/$target" && zip -q -r "../../ffmpeg-desktop-$target.zip" .)
+            sha256sum "ffmpeg-desktop-$target.zip" | tee "ffmpeg-desktop-$target.zip.sha256"
+          done
+          ls -l ffmpeg-desktop-*.zip
+      - uses: actions/upload-artifact@v4
+        if: steps.existing.outputs.exists != 'true'
+        with:
+          name: ffmpeg-desktop
+          path: |
+            ffmpeg-desktop-*.zip
+            ffmpeg-desktop-*.zip.sha256
+            test/inputs
+
+  windows:
+    needs: build
+    if: needs.build.outputs.exists != 'true'
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-desktop
+      - name: Smoke-test Windows (Media Foundation and x264)
+        run: |
+          set -euo pipefail
+          mkdir -p win && unzip -q ffmpeg-desktop-windows-x64.zip -d win
+          test/smoke.sh win/ffmpeg.exe test/inputs
+
+  release:
+    needs: [build, windows]
+    if: github.event_name == 'push' && needs.build.outputs.exists != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-desktop
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ needs.build.outputs.tag }}"
+          gh release create "$tag" ffmpeg-desktop-*.zip ffmpeg-desktop-*.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$tag" \
+            --notes "Trimmed static FFmpeg for Caper desktop (linux-x64, windows-x64). GPL-2.0-or-later; licences and SOURCES.txt inside each zip. SHA-256: $(cat ffmpeg-desktop-*.zip.sha256 | tr '\n' ' ')"
