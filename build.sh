@@ -6,7 +6,8 @@
 #     SDR BT.709 with zimg),
 #   - play a video in the app (decoded to raw RGBA frames and float PCM on
 #     pipes, streamed from a loopback HTTP proxy in the app), and
-#   - decode AVIF/HEIC photos for the full-size viewer (dav1d, HEVC).
+#   - decode AVIF/HEIC photos for uploads and the viewer (dav1d, HEVC, and
+#     xstack for the tile grids iPhone cameras save HEIC photos as).
 #
 # Usage: ./build.sh linux-x64 | windows-x64   (both build on x86_64 Linux;
 # windows-x64 cross-compiles with mingw-w64.)
@@ -35,7 +36,7 @@ X264_SHA=6eeb82934e69fd51e043bd8c5b0d152839638d1ce7aa4eea65a3fedcf83ff224
 ZIMG_TAG=release-3.0.6
 ZIMG_COMMIT=f819b14e8f39d1282400b0d9543e8ef73c1b2bbd
 # Bump to publish a new build of the same versions (flags or script changes).
-RELEASE_REVISION=1
+RELEASE_REVISION=2
 
 TARGET="${1:-}"
 case "$TARGET" in
@@ -157,9 +158,9 @@ FEATURES=(
   --enable-bsf=vp9_superframe_split,h264_mp4toannexb,hevc_mp4toannexb
   --enable-encoder=libx264,aac,rawvideo,pcm_f32le
   --enable-muxer=mp4,rawvideo,pcm_f32le,null
-  # Scaling, rotation (autorotate inserts transpose/flips), tone mapping and
-  # player resampling.
-  --enable-filter=scale,format,zscale,tonemap,transpose,hflip,vflip,fps,setsar,null,anull,aresample,aformat
+  # Scaling, rotation (autorotate inserts transpose/flips), tone mapping,
+  # HEIC tile grids (xstack, then crop) and player resampling.
+  --enable-filter=scale,format,zscale,tonemap,transpose,hflip,vflip,xstack,crop,fps,setsar,null,anull,aresample,aformat
 )
 WINDOWS_FEATURES=()
 # Windows' own H.264 encoder (hardware on most PCs), tried before x264.

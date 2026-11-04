@@ -53,6 +53,17 @@ test "$pcm" -ge $((48000 * 2 * 4 / 2))
 still="$(run -i "$inputs/photo.avif" -frames:v 1 -vf "scale=1200:800,format=rgba" -f rawvideo -pix_fmt rgba pipe:1 | wc -c)"
 test "$still" -eq $((1200 * 800 * 4))
 
+# An iPhone-style HEIC (see heic_grid.py): the probe reports the tile grid's
+# picture size, and decoding stitches, crops and turns it upright to 400x500.
+probe "$inputs/photo.heic" | tee "$work/heic.txt"
+grep -q "Tile Grid: hevc.*500x400" "$work/heic.txt"
+run -i "$inputs/photo.heic" -frames:v 1 -vf "scale=400:500,format=rgba" -f rawvideo -pix_fmt rgba pipe:1 > "$work/heic.rgba"
+test "$(wc -c < "$work/heic.rgba")" -eq $((400 * 500 * 4))
+# Quadrants as libheif shows them: green, white / red, blue.
+if python3 -c pass >/dev/null 2>&1; then
+  python3 "$(dirname "$0")/heic_grid.py" --check "$work/heic.rgba"
+fi
+
 # Loopback HTTP (the app's stream proxy), where Python is available.
 # (Windows can have a python3 that is only a Store shortcut, so run it first.)
 if python3 -c pass >/dev/null 2>&1; then

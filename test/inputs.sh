@@ -15,4 +15,6 @@ rm "$out/hdr.mov"
 "${f[@]}" -f lavfi -i testsrc2=size=640x360:rate=30 -f lavfi -i sine -t 1 -c:v libvpx-vp9 -c:a libopus "$out/browser.webm"
 # An AV1 still (AVIF), as other clients store photos.
 "${f[@]}" -f lavfi -i testsrc2=size=1200x800 -frames:v 1 -c:v libaom-av1 -still-picture 1 "$out/photo.avif"
+# An iPhone-style HEIC photo: a cropped grid of HEVC tiles, rotated, Display P3.
+python3 "$(dirname "$0")/heic_grid.py" ffmpeg "$out/photo.heic"
 ls -l "$out"

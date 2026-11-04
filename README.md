@@ -8,7 +8,8 @@ a separate program to:
 - compress videos before upload (H.264/AAC MP4, HDR tone mapped to SDR),
 - play videos in the app (raw RGBA frames and float PCM on pipes, streamed
   from the app's loopback HTTP proxy), and
-- decode AVIF and HEIC photos for the full-size viewer.
+- decode AVIF and HEIC photos (including iPhone tile grids) for uploads and
+  the full-size viewer.
 
 | | |
 | --- | --- |
@@ -33,8 +34,8 @@ program and does not link it.
 
 Every push to `main` builds both targets on GitHub's Ubuntu runner,
 smoke-tests the Linux build there and the Windows build on a Windows runner
-(`test/smoke.sh`: the app's exact compress, poster, playback, AVIF and
-loopback-HTTP commands, with inputs from `test/inputs.sh`), and publishes
+(`test/smoke.sh`: the app's exact compress, poster, playback, AVIF,
+tiled-HEIC and loopback-HTTP commands, with inputs from `test/inputs.sh`), and publishes
 `ffmpeg-desktop-linux-x64.zip` and `ffmpeg-desktop-windows-x64.zip` with their
 `.sha256` as the release `ffmpeg-<version>-r<RELEASE_REVISION>`. An existing
 release is never replaced: Caper pins each zip's SHA-256, so a rebuild of the
